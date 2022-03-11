@@ -196,7 +196,6 @@ def get_most_similar_domain(trg_domain, domain2term_dists,
 
 
 # TOPIC DISTRIBUTIONS
-
 def train_topic_model(examples, vocab, num_topics=50, num_iterations=2000,
                       num_passes=10):
     """
@@ -241,6 +240,7 @@ def get_topic_distributions(examples, vectorizer, lda_model):
     :return: an array of shape (num_examples, num_topics) containing the topic
              distribution of each example
     """
+    print('examples', examples)
     vectorized_corpus = vectorizer.transform(examples)
     gensim_corpus = gensim.matutils.Sparse2Corpus(vectorized_corpus,
                                                   documents_columns=False)

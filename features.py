@@ -13,8 +13,11 @@ def get_feature_representations(feature_names, examples, trg_examples, vocab,
     """
     Retrieve the feature representations of a list of examples.
     :param feature_names: a list containing the names of features to be used
+
     :param examples: a list of tokenized documents of all source domains
     :param trg_examples: a list of tokenized documents of the target domain
+
+
     :param vocab: the Vocabulary object
     :param word2vec: a mapping of a word to its word vector representation
                     (e.g. GloVe or word2vec)
@@ -74,6 +77,10 @@ def get_feature_representations(feature_names, examples, trg_examples, vocab,
         for j, f_name in enumerate(feature_names):
             # check whether feature belongs to similarity-based features,
             # diversity-based features, etc.
+            if i == 0:
+                print(j)
+                print(f_name)
+
             if f_name.startswith('topic'):
                 f = similarity.similarity_name2value(
                     f_name.split('_')[1], topic_dists[i], trg_topic_dist)
@@ -122,10 +129,10 @@ def get_feature_names(feature_set_names):
         features += DIVERSITY_FEATURES
     print('Using %d features.' % (len(features)))
     return features
-
+# return a list of features name? e.g. if similarity ---> SIMILARITY_FUNCTIONS = ['jensen-shannon', 'renyi', 'cosine', 'euclidean',
+#                         'variational', 'bhattacharyya']
 
 # DIVERSITY-BASED FEATURES
-
 def diversity_feature_name2value(f_name, example, train_term_dist, word2id,
                                  word2vec):
     """

@@ -64,6 +64,7 @@ class Vocab:
         print('Building the vocabulary...')
         if lowercase:
             print('Lower-casing the input texts...')
+            print('example of the first text before lower: ', texts[0])
             texts = [[word.lower() for word in text] for text in texts]
 
         word_counts = Counter(itertools.chain(*texts))

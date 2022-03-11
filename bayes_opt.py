@@ -12,9 +12,9 @@ import copy
 
 import numpy as np
 from scipy import stats
-from sklearn.cross_validation import train_test_split
-
-from robo.fmin import bayesian_optimization
+from sklearn.model_selection import train_test_split
+import robo
+# from robo.fmin import bayesian_optimization
 
 import task_utils
 import data_utils
