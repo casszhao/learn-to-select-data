@@ -24,7 +24,7 @@ import features
 from constants import FEATURE_SETS, SENTIMENT, POS, POS_BILSTM, PARSING,\
     TASK2TRAIN_EXAMPLES, TASK2DOMAINS, TASKS, POS_PARSING_TRG_DOMAINS,\
     SENTIMENT_TRG_DOMAINS, BASELINES, BAYES_OPT, RANDOM, MOST_SIMILAR_DOMAIN,\
-    MOST_SIMILAR_EXAMPLES, ALL_SOURCE_DATA
+    MOST_SIMILAR_EXAMPLES, ALL_SOURCE_DATA, SIMILARITY_FUNCTIONS
 
 from bist_parser.bmstparser.src.utils import ConllEntry
 
@@ -131,8 +131,6 @@ def objective_function_parsing(feature_weights):
 # train_and_evaluate = task_utils.task2train_and_evaluate_func(args.task)
 # objective_function = task2_objective_function(args.task)
 
-feature_set_names = ['similarity', 'topic_similarity']
-feature_names = features.get_feature_names(feature_set_names)
 
 def convert_to_listoflisttoken(text_full_list):
     list_of_list_of_tokens = []
@@ -148,7 +146,18 @@ def convert_to_listoflisttoken(text_full_list):
     return list_of_list_of_tokens
 
 
+Rep_Mea = ['Term jensen-shannon', 'Term renyi', 'Term cosine', 'Term euclidean', 'Term variational', 'Term bhattacharyya',
+           'Topic jensen-shannon', 'Topic renyi', 'Topic cosine', 'Topic euclidean', 'Topic variational', 'Topic bhattacharyya']
+
+Measure = ['jensen-shannon', 'renyi', 'cosine', 'euclidean', 'variational', 'bhattacharyya',
+           'jensen-shannon', 'renyi', 'cosine', 'euclidean', 'variational', 'bhattacharyya']
+
 data = 'xfact'
+feature_set_names = ['similarity', 'topic_similarity']
+feature_names = features.get_feature_names(feature_set_names)
+# for topic modelling:
+num_iterations = 2000 # for testing, original use 2000? need to check the paper
+
 model_dir = 'models/'+ str(data) + '/'
 in_domain_train = pd.read_csv('data/'+ str(data) + '/InDomain_train.csv')
 in_domain_train_list = in_domain_train['text']
@@ -170,106 +179,125 @@ OOD2_test = pd.read_csv('data/'+ str(data) + '/OOD2_test.csv')
 OOD2_test_list = OOD2_test['text']
 OOD2_test_list_list = convert_to_listoflisttoken(OOD2_test_list)
 
-
-
-text_full_list = in_domain_train_list + in_domain_test_list
-
-
-
 os.makedirs(model_dir, exist_ok=True)
+
+
+
+# for representation with term dist:
+# s1: taking all words to make a vocabulary
+# s2: generate term dist for InD train, InD test, OOD1 test and OOD2 test
+# s3: get similarity between [D(InD train), D(InD test)] as the baseline,
+# s3: [D(InD train), D(OOD1 test)]
+# s3: [D(InD train), D(OOD2 test)]
+
+list_of_list_of_tokens = in_domain_train_list_list + in_domain_test_list_list + OOD1_test_list_list + OOD2_test_list_list
+
 
 # create the vocabulary or load it if it was already created
 vocab_path = os.path.join(model_dir, 'vocab.txt')
 print('vocab_path: ', vocab_path)
 
+
 vocab = data_utils.Vocab(20000, vocab_path) # two functions, load and create
-
-print(vocab)
-
-
-
-
-list_of_list_of_tokens = in_domain_train_list_list + in_domain_test_list_list + OOD1_test_list_list + OOD2_test_list_list
-
-# print(list_of_list_of_tokens)
 vocab.create(list_of_list_of_tokens, lowercase=True)
 
-'''
-if not os.path.exists(vocab_path):
-    # retrieve all available tokenised sentences
-    tokenised_sentences = data_utils.get_all_docs(
-        domain2data.items(), unlabeled=True)[0]
-    if args.task == PARSING:
-        # get the word form from every ConllEntry
-        tokenised_sentences = [[token.form if isinstance(token, ConllEntry)
-                                else token for token in tokens]
-                               for tokens in tokenised_sentences]
-    vocab.create(tokenised_sentences)
-    del tokenised_sentences
-else:
-    vocab.load()
-'''
-# load word vectors if we are using them
-# word2vec = None
-# if args.word2vec_path:
-#     vocab_word2vec_file = os.path.join(args.model_dir, 'vocab_word2vec.txt')
-#     word2vec = similarity.load_word_vectors(
-#         args.word2vec_path, vocab_word2vec_file, vocab.word2id,
-#         vector_size=args.vector_size, header=args.header)
+print(vocab)
+print('vocabulary size')
+print(vocab.size)
 
-# perform the task-specific pre-processing
-# if args.task == SENTIMENT:
-#     print('Creating binary training data...')
-#     domain2train_data = data_utils.get_tfidf_data(domain2data, vocab)
-# elif args.task in [POS, POS_BILSTM]:
-#     print('Using words as training data for POS tagging...')
-#     domain2train_data = domain2data
-# elif args.task == PARSING:
-#     print('Using CoNLL entries as training data for parsing. Using word '
-#           'forms to extract feature representations...')
-#     domain2train_data = copy.deepcopy(domain2data)
-#     for domain, domain_data in domain2data.items():
-#         domain_data[0] = [[conll_entry.form for conll_entry in conll_entries]
-#                           for conll_entries in domain_data[0]]
-# else:
-#     raise ValueError('Data preproc for %s is not implemented.' % args.task)
 
 # print('Creating relative term frequency distributions for all domains...')
 term_dist_path = os.path.join(model_dir, 'term_dist.txt')
 
-a_list_of_tokenized_documents_of_all_source_domains = [in_domain_train_list_list]
-a_list_of_tokenized_documents_of_the_target_domain = [in_domain_test_list_list, OOD1_test_list_list, OOD2_test_list_list]
 
-num_iterations = 200 # for testing, original use 2000? need to check the paper
+topic_vectorizer, lda_model = similarity.train_topic_model(in_domain_train_list_list, vocab, num_topics=50, num_iterations=num_iterations, num_passes=10)
 
-topic_vectorizer, lda_model = similarity.train_topic_model(in_domain_train_list_list, vocab, num_topics=10, num_iterations=2, num_passes=10)
+print(' ---------- feature_names: ', feature_names)
+InD_train_reps = features.get_reps_for_one_domain(in_domain_train_list_list, vocab, feature_names, topic_vectorizer, lda_model, lowercase=True) # 0. term dist 1. topic dist
+InD_test_reps = features.get_reps_for_one_domain(in_domain_test_list_list, vocab, feature_names, topic_vectorizer, lda_model, lowercase=True)
+OOD1_reps = features.get_reps_for_one_domain(OOD1_test_list_list, vocab, feature_names, topic_vectorizer, lda_model, lowercase=True)
+OOD2_reps = features.get_reps_for_one_domain(OOD2_test_list_list, vocab, feature_names, topic_vectorizer, lda_model, lowercase=True)
 
-print('feature_names: ', feature_names)
-feature_values = features.get_feature_representations(feature_names, in_domain_test_list_list, OOD1_test_list_list, vocab,
-                                                      word2vec=None, topic_vectorizer=topic_vectorizer,
-                                                      lda_model=lda_model, lowercase=True)
+print('-----------example of term dist representations and topic dist representations')
+print(InD_test_reps[0])
+print(InD_test_reps[1])
 
-print('in_domain_test_list_list len: ', len(in_domain_test_list_list))
-print('OOD1_test_list_list len: ', len(OOD1_test_list_list))
-# get_feature_representations
-# will # "get the term distribution of the entire training data
-#     # (a numpy array of shape (vocab_size,) )"
 
-# get the term distribution of each training example
-# (a numpy array of shape (num_examples, vocab_size) )
 
-# get the term distribution of the target data
-# (a numpy array of shape (vocab_size, ) )
+def get_similarity_between_2reps(domain1, domain2, feature_names):
 
-# get the topic distributions of the train and target data
+    domain1_term_dist, domain1_topic_dist = domain1
+    domain2_term_dist, domain2_topic_dist = domain2
+    # features here are actually similarities value betweeen two distributions
+    Representations = []
+    # Measures = []
+    Similarity = []
 
-print('================ feature values =======================')
-print(feature_values)
-print('------feature values shape, list of list-------')
-print(len(feature_values))
-print(len(feature_values[0]))
+    for j, f_name in enumerate(feature_names):
+        # check whether feature belongs to similarity-based features,
+        # diversity-based features, etc.
+        # print(j)
+        # print(f_name)
+        # Measures.append(f_name)
 
-JSD = similarity_name2value('jensen_shannon_divergence', repr1, repr2)
+        if f_name.startswith('topic'):
+            f = similarity.similarity_name2value(
+                f_name.split('_')[1], domain1_topic_dist, domain2_topic_dist)
+            Representations.append('Topic distribution')
+
+        # elif f_name.startswith('word_embedding'):
+        #     f = similarity.similarity_name2value(
+        #         f_name.split('_')[2], word_reprs[i], trg_word_repr)
+        elif f_name in SIMILARITY_FUNCTIONS:
+            f = similarity.similarity_name2value(
+                f_name, domain1_term_dist, domain2_term_dist)
+            Representations.append('Term distribution')
+        # elif f_name in DIVERSITY_FEATURES:
+        #     f = diversity_feature_name2value(
+        #         f_name, examples[i], train_term_dist, vocab.word2id, word2vec)
+        else:
+            raise ValueError('%s is not a valid feature name.' % f_name)
+        assert not np.isnan(f), 'Error: Feature %s is nan.' % f_name
+        assert not np.isinf(f), 'Error: Feature %s is inf or -inf.' % f_name
+
+        Similarity.append(f)
+
+    return pd.DataFrame(list(zip(Similarity, Representations)),
+                        columns=['Similarity', 'Representations'])
+
+
+
+
+def pre_post_process(domain_reps, domain_column_name):
+    df = get_similarity_between_2reps(InD_train_reps, domain_reps, feature_names)
+    df['Measure'] = Measure
+    df['Rep_Mea'] = Rep_Mea
+    df['Domain'] = str(domain_column_name)
+    return df
+
+
+baseline_similarity = pre_post_process(InD_test_reps, 'In Domain(Baseline)')
+OOD1_similarity = pre_post_process(OOD1_reps, 'OOD1')
+OOD2_similarity = pre_post_process(OOD2_reps, 'OOD2')
+results = pd.concat([baseline_similarity,OOD1_similarity,OOD2_similarity],ignore_index=True)
+results.to_csv(model_dir + 'results.csv')
+
+
+
+
+
+
+
+
+
+
+print(baseline_similarity)
+# cosine_baseline = similarity.similarity_name2value('cosine', InD_train_reps[0], InD_test_reps[0])
+# cosine_OOD1 = similarity.similarity_name2value('cosine', InD_train_reps[0], OOD1_reps[0])
+
+
+
+
 
 """
 Retrieve the feature representations of a list of examples.

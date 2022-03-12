@@ -6,6 +6,51 @@ import numpy as np
 import similarity
 from constants import SIMILARITY_FUNCTIONS, DIVERSITY_FEATURES
 
+def get_reps_for_one_domain(trg_examples, vocab, feature_names, topic_vectorizer, lda_model, lowercase = True):
+    """
+    Retrieve the feature representations of a list of examples.
+    :param feature_names: a list containing the names of features to be used
+
+    :param examples: a list of tokenized documents of all source domains
+    :param trg_examples: a list of tokenized documents of the target domain
+
+
+    :param vocab: the Vocabulary object
+    :param word2vec: a mapping of a word to its word vector representation
+                    (e.g. GloVe or word2vec)
+    :param topic_vectorizer: the CountVectorizer object used to transform
+                             tokenized documents for LDA
+    :param lda_model: the trained LDA model
+    :param lowercase: lower-case the input examples for source and target
+                      domains
+    :return: the feature representations of the examples as a 2d numpy array of
+             shape (num_examples, num_features)
+    """
+    # features = np.zeros((len(examples), len(feature_names)))  # 给每个example，针对每个feature（similarity...）一个value
+
+    if lowercase:
+        print('Lower-casing the source and target domain examples...')
+        trg_examples = [[word.lower() for word in trg_example]
+                        for trg_example in trg_examples]
+
+    #################### term distribution
+    # get the term distribution of the target data （他这里是针对一个文本）
+    # (a numpy array of shape (vocab_size, ) )
+    trg_term_dist = similarity.get_term_dist(trg_examples, vocab)
+
+    #################### topic distributions
+    # get the topic distributions of the train and target data
+    topic_dists, trg_topic_dist = None, None
+    if any(f_name.startswith('topic') for f_name in feature_names):
+        print('Retrieving the topic distributions of source and target data...')
+        trg_topic_dist = np.mean(similarity.get_topic_distributions(trg_examples, topic_vectorizer, lda_model), axis=0)
+        print('Shape of target topic dist:', trg_topic_dist.shape)
+
+    return trg_term_dist, trg_topic_dist
+
+
+
+
 
 def get_feature_representations(feature_names, examples, trg_examples, vocab,
                                 word2vec=None, topic_vectorizer=None,

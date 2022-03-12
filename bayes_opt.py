@@ -227,7 +227,8 @@ if __name__ == '__main__':
     assert args.word2vec_path or 'diversity' not in args.feature_sets,\
         'Error: Word2vec path is required for quadratic entropy in ' \
         'diversity-based features.'
-    feature_names = features.get_feature_names(args.feature_sets)
+    feature_names = features.get_feature_names(args.feature_sets) # = ['jensen-shannon', 'renyi', 'cosine', 'euclidean',
+                                                                   # 'variational', 'bhattacharyya' .......]
 
     if args.feature_weights_file:
         print('Training model with pre-learned feature weights rather than '

@@ -240,7 +240,7 @@ def get_topic_distributions(examples, vectorizer, lda_model):
     :return: an array of shape (num_examples, num_topics) containing the topic
              distribution of each example
     """
-    print('examples', examples)
+    # print('examples', examples)
     vectorized_corpus = vectorizer.transform(examples)
     gensim_corpus = gensim.matutils.Sparse2Corpus(vectorized_corpus,
                                                   documents_columns=False)
